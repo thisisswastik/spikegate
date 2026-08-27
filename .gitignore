@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment / secrets
+.env
+*.env
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Data artifacts (generated at runtime)
+data/
+*.jsonl
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Eval artifacts (keep report.md checked-in after eval run)
+# eval/report.md is intentionally NOT ignored

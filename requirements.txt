@@ -1,0 +1,35 @@
+# SpikeGate — pinned requirements (generated from pyproject.toml)
+# Install with: pip install -r requirements.txt
+# Or (recommended): uv pip install -r requirements.txt
+
+# ML / detection
+xgboost>=2.0
+scikit-learn>=1.4
+shap>=0.45
+
+# Data
+pandas>=2.0
+numpy>=1.26
+
+# Schema / validation
+pydantic>=2.0
+
+# LangGraph agent
+langgraph>=0.2
+langchain-core>=0.2
+langchain-google-genai>=1.0
+google-generativeai>=0.7
+
+# Storage
+sqlalchemy>=2.0
+
+# Dashboard
+streamlit>=1.35
+
+# Config
+python-dotenv>=1.0
+
+# Dev / test
+pytest>=8.0
+pytest-asyncio>=0.23
+pytest-cov>=5.0
