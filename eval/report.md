@@ -1,37 +1,44 @@
 # SpikeGate Evaluation Report
-> Generated: 2026-08-27T17:20:00Z
+> Generated: 2026-08-27T12:19:45Z
 
 ## Dataset
 
 | Metric | Value |
-|---|---|
-| Total transactions | 30,080 |
-| Spike transactions | 25,731 (85.5%) |
-| Normal transactions | 4,349 (14.5%) |
-| Evaluation split | Held-out 20% test split |
+|--------|-------|
+| Total transactions | 12,636 |
+| Spike transactions | 9,114 (72.1%) |
+| Normal transactions | 3,522 |
+
+## Action Distribution
+
+| Action | Count | % of Total |
+|--------|-------|-----------|
+| auto_block | 0 | 0.0% |
+| soft_challenge | 11,271 | 89.2% |
+| flag_for_review | 1,342 | 10.6% |
+| allow | 23 | 0.2% |
 
 ## Binary Classification Metrics
 > (auto_block + soft_challenge = 'actioned' positive prediction)
 
-| Metric | Value | Notes |
-|---|---|---|
-| **Precision** | **0.9125** (91.25%) | Low false alarm rate |
-| **Recall** | **0.9846** (98.46%) | Catches 98.5% of all fraud bursts |
-| **F1 Score** | **0.9472** (94.72%) | Harmonic mean of precision and recall |
-| **Overall Accuracy** | **0.9100** (91.00%) | Multi-class weighted avg: 0.90 |
+| Metric | Value |
+|--------|-------|
+| True Positives | 9,014 |
+| False Positives | 2,257 |
+| False Negatives | 100 |
+| True Negatives | 1,265 |
+| **Precision** | **0.7998** |
+| **Recall** | **0.9890** |
+| **F1 Score** | **0.8844** |
 
-## Classification Report
+## Per-Action Metrics
 
-```
-              precision    recall  f1-score   support
-
-      normal       0.83      0.44      0.58      4,349
-       spike       0.91      0.98      0.95     25,731
-
-    accuracy                           0.91     30,080
-   macro avg       0.87      0.71      0.76     30,080
-weighted avg       0.90      0.91      0.89     30,080
-```
+| Action | Count | Precision | Recall | F1 |
+|--------|-------|-----------|--------|-----|
+| auto_block | 0 | 0.0000 | 0.0000 | 0.0000 |
+| soft_challenge | 11,271 | 0.7998 | 0.9890 | 0.8844 |
+| flag_for_review | 1,342 | 0.9255 | 0.3526 | 0.5107 |
+| allow | 23 | 1.0000 | 0.0065 | 0.0130 |
 
 ## False-Positive Cost Analysis (INR)
 
@@ -39,10 +46,10 @@ weighted avg       0.90      0.91      0.89     30,080
 > soft_challenge FP cost = 10% friction of transaction amount
 
 | Metric | Amount (₹) |
-|---|---|
-| True-positive value (fraud correctly caught) | ₹1,28,65,500.00 |
-| False-positive cost (wrongly blocked/challenged) | ₹18,22,400.00 |
-| **Net value (TP value − FP cost)** | **+₹1,10,43,100.00** |
+|--------|-----------|
+| False-positive cost (wrongly blocked/challenged) | ₹  947,025.35 |
+| True-positive value (fraud correctly caught) | ₹30,994,706.38 |
+| **Net value (TP value − FP cost)** | **₹30,047,681.03** |
 
 ## Defense-Only Statement
 

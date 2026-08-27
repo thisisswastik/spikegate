@@ -115,17 +115,20 @@ def run_eval(
     _seed_context_db(context_db_path, n_merchants, seed)
 
     # ------------------------------------------------------------------
-    # 3. Fit detector
+    # 3. Fit or Load detector
     # ------------------------------------------------------------------
-    if verbose:
-        print(f"\n[3/5] Training detector on {len(train):,} training transactions...")
-
-    pipeline = DetectorPipeline(score_threshold=0.10)
-    pipeline.fit(train, random_state=seed)
-    pipeline.save_model(model_path)
-
-    if verbose:
-        print(f"  Detector fitted and saved to {model_path}")
+    if model_path and Path(model_path).exists():
+        if verbose:
+            print(f"\n[3/5] Loading existing trained detector model from {model_path}...")
+        pipeline = DetectorPipeline(model_path=model_path, score_threshold=0.10)
+    else:
+        if verbose:
+            print(f"\n[3/5] Training detector on {len(train):,} training transactions...")
+        pipeline = DetectorPipeline(score_threshold=0.10)
+        pipeline.fit(train, random_state=seed)
+        pipeline.save_model(model_path)
+        if verbose:
+            print(f"  Detector fitted and saved to {model_path}")
 
     # ------------------------------------------------------------------
     # 4. Run detector + agent on test set
@@ -147,8 +150,8 @@ def run_eval(
         "SPIKE_ALLOW_THRESHOLD": os.environ.get("SPIKE_ALLOW_THRESHOLD", "0.15"),
     }):
         for i, tx in enumerate(test):
-            if verbose and i % 1000 == 0:
-                print(f"  Processing {i:,}/{len(test):,}...", end="\r")
+            if verbose and i % 100 == 0:
+                print(f"  Processing {i:,}/{len(test):,} test transactions...", end="\r", flush=True)
 
             # Detector step
             det_output = pipeline.process_one(tx)

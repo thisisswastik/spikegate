@@ -121,6 +121,9 @@ class DetectorPipeline:
         if self.detector is None or not self.detector.is_fitted:
             raise RuntimeError("Pipeline must be fitted before calling process_one()")
 
+        if self.extractor is None:
+            self.extractor = FeatureExtractor(self.engine)
+
         self.engine.ingest(tx)
 
         # Score the primary entity dimension (merchant_id)
@@ -163,6 +166,9 @@ class DetectorPipeline:
         """
         if self.detector is None or not self.detector.is_fitted:
             raise RuntimeError("Pipeline must be fitted before calling process_batch()")
+
+        if self.extractor is None:
+            self.extractor = FeatureExtractor(self.engine)
 
         outputs = []
         for tx in transactions:

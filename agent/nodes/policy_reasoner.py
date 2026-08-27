@@ -95,31 +95,37 @@ Return ONLY valid JSON: {{"action": "...", "confidence": 0.0-1.0, "reasoning": "
 
 
 def _call_gemini(prompt: str) -> dict[str, Any]:
-    """Call Gemini API and return parsed JSON response."""
-    try:
-        import google.generativeai as genai
-    except ImportError:
-        raise RuntimeError("google-generativeai not installed. Run: pip install google-generativeai")
+    """Call Gemini REST API and return parsed JSON response."""
+    import requests
 
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key or api_key == "your_gemini_api_key_here":
         raise ValueError("GEMINI_API_KEY is not set. Please set it in .env")
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    # Clean model name if user provided prefix
+    if model_name.startswith("models/"):
+        model_name = model_name[len("models/"):]
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=_SYSTEM_PROMPT,
-        generation_config=genai.types.GenerationConfig(
-            response_mime_type="application/json",
-            temperature=0.1,   # low temperature for consistent structured output
-            max_output_tokens=512,
-        ),
-    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
 
-    response = model.generate_content(prompt)
-    raw_text = response.text.strip()
+    payload = {
+        "contents": [{
+            "parts": [{"text": f"{_SYSTEM_PROMPT}\n\n{prompt}"}]
+        }],
+        "generationConfig": {
+            "response_mime_type": "application/json",
+            "temperature": 0.1,
+            "maxOutputTokens": 512,
+        },
+    }
+
+    response = requests.post(url, json=payload, timeout=5.0)
+    if response.status_code != 200:
+        raise RuntimeError(f"Gemini API error (HTTP {response.status_code}): {response.text}")
+
+    data = response.json()
+    raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
     # Parse JSON
     parsed = json.loads(raw_text)
@@ -133,6 +139,28 @@ def policy_reasoner(state: AgentState) -> AgentState:
     If context is unavailable OR the LLM call fails → default to flag_for_review.
     Action is validated against the VALID_ACTIONS enum before being accepted.
     """
+    det = state["detector_output"]
+    score = det.spike_score
+
+    # Fast path 1: Obvious massive spike (>= 0.90) — bounds_gate will force auto_block anyway
+    hard_block = float(os.environ.get("SPIKE_HARD_BLOCK_THRESHOLD", "0.90"))
+    if score >= hard_block:
+        return {
+            **state,
+            "llm_action": "auto_block",
+            "llm_confidence": 0.99,
+            "llm_reasoning": f"Critical spike score ({score:.4f} >= {hard_block:.2f}) requiring immediate block.",
+        }
+
+    # Fast path 2: Below minimum alert threshold (<= 0.15) — bounds_gate will force allow anyway
+    allow_threshold = float(os.environ.get("SPIKE_ALLOW_THRESHOLD", "0.15"))
+    if score <= allow_threshold:
+        return {
+            **state,
+            "llm_action": "allow",
+            "llm_confidence": 0.95,
+            "llm_reasoning": f"Low risk score ({score:.4f} <= {allow_threshold:.2f}) — normal traffic allowed.",
+        }
 
     # Graceful degradation: no context → safe default, no LLM call
     if not state.get("context_available", True):
