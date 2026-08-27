@@ -98,7 +98,6 @@ def run_eval(
     gen = TransactionGenerator(
         n_merchants=n_merchants,
         base_tps=2.0,
-        spike_prob=0.02,
         simulation_hours=simulation_hours,
         seed=seed,
     )

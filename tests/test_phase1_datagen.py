@@ -31,7 +31,6 @@ from data_gen.stream import batch_to_jsonl, load_jsonl, replay_stream, split_tra
 FAST_GEN = dict(
     n_merchants=10,
     base_tps=2.0,
-    spike_prob=0.05,  # higher prob for short sim to guarantee some spikes
     simulation_hours=1.0,
     seed=42,
 )
@@ -105,9 +104,9 @@ class TestBaselineStatistics:
 
 class TestSpikeLabeling:
     def test_spikes_are_injected(self, generated_data):
-        """At least one spike burst should be generated given spike_prob=0.05."""
+        """At least one spike burst should be generated."""
         _, bursts = generated_data
-        assert len(bursts) > 0, "No spike bursts were injected (unexpected for spike_prob=0.05)"
+        assert len(bursts) > 0, "No spike bursts were injected"
 
     def test_spike_transactions_labeled(self, generated_data):
         """All injected spike bursts must have at least one is_spike=True transaction."""
@@ -148,12 +147,14 @@ class TestSpikeLabeling:
                     f"[{burst.start_time}, {burst.end_time}]"
                 )
 
-    def test_spike_fraction_nonzero(self, generated_data):
-        """There should be a detectable fraction of spike transactions."""
+    def test_spike_fraction_realistic(self, generated_data):
+        """Spike transactions should realistically make up ~1-6% of total volume, not >50%."""
         txns, _ = generated_data
         spike_count = sum(1 for tx in txns if tx.is_spike)
         spike_fraction = spike_count / len(txns) if txns else 0
-        assert spike_fraction > 0, "No spike transactions found in output"
+        assert 0.01 <= spike_fraction <= 0.10, (
+            f"Spike fraction {spike_fraction:.2%} is outside realistic 1-10% bounds"
+        )
 
 
 # ---------------------------------------------------------------------------

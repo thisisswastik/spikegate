@@ -192,22 +192,31 @@ streamlit run dashboard/app.py --server.port 8501
 
 ---
 
-## Honest Metrics (Held-Out Test Set: 30,080 Transactions)
+## Honest Metrics (Held-Out Test Set: 18,107 Transactions)
 
-> Every number below is from an actual evaluation on held-out test data.
+> Every number below is from an actual evaluation on held-out test data (`simulation_hours=12`, `n_merchants=50`, `seed=42`).
 > No numbers have been rounded up, simulated, or cherry-picked.
 
 | Metric | Value | Notes |
 |---|---|---|
-| **Test Set Size** | **30,080** | Held-out 20% split |
-| **Spike Transactions** | **25,731 (85.5%)** | Ground-truth spike bursts |
-| **Normal Transactions** | **4,349 (14.5%)** | Poisson baseline traffic |
-| **Decision Threshold** | **0.50** | Standard probability cut-off |
-| **Precision** | **91.25% (0.9125)** | Fraction of predicted spikes that were real |
-| **Recall** | **98.46% (0.9846)** | Fraction of actual spikes caught |
-| **F1 Score** | **94.72% (0.9472)** | Harmonic mean of precision & recall |
-| **Overall Accuracy** | **91.00%** | Macro avg: 0.87 / Weighted avg: 0.90 |
+| **Test Set Size** | **18,107** | Held-out 20% split |
+| **Spike Transactions** | **860 (4.75%)** | Ground-truth spike bursts (realistic fraud prevalence) |
+| **Normal Transactions** | **17,247 (95.25%)** | Poisson baseline traffic |
+| **Decision Threshold** | **0.50** | Action boundary threshold |
+| **Precision** | **70.58% (0.7058)** | Fraction of predicted spikes that were real |
+| **Recall** | **81.74% (0.8174)** | Fraction of actual spikes caught |
+| **F1 Score** | **75.75% (0.7575)** | Harmonic mean of precision & recall |
+| **Overall Accuracy** | **97.51%** | True Positives (703) + True Negatives (16,954) |
 
+### False-Positive Cost Analysis (INR)
+
+> **FP cost model**: 100% of transaction amount for wrong blocks, 10% friction cost for soft challenges.
+
+| Metric | Amount (₹) | Details |
+|---|---|---|
+| **False-Positive Cost** | **₹137,876.28** | Friction on 293 legitimate transactions challenged |
+| **True-Positive Value** | **₹3,603,136.98** | Fraud prevented on 703 real spike attacks caught |
+| **Net Platform Value** | **₹3,465,260.70** | **TP Value − FP Cost (25.1× ROI)** |
 
 *See [`eval/report.md`](eval/report.md) for full per-action breakdown.*
 

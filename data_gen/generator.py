@@ -209,16 +209,21 @@ class TransactionGenerator:
         self,
         n_merchants: int = 50,
         base_tps: float = 2.0,
-        spike_prob: float = 0.02,
-        spike_multiplier_range: tuple[float, float] = (5.0, 20.0),
-        spike_duration_range: tuple[float, float] = (30.0, 300.0),
+        spike_prob: float | None = None,
+        spike_multiplier_range: tuple[float, float] = (5.0, 12.0),
+        spike_duration_range: tuple[float, float] = (30.0, 90.0),
         simulation_hours: float = 24.0,
         seed: int = 42,
         start_time: datetime | None = None,
     ):
         self.n_merchants = n_merchants
         self.base_tps = base_tps
-        self.spike_prob = spike_prob
+        # Default spike probability scales with merchant fleet size to maintain
+        # realistic ~2-5% fraud spike prevalence across any simulation size
+        if spike_prob is None:
+            self.spike_prob = 0.00010 * n_merchants
+        else:
+            self.spike_prob = spike_prob
         self.spike_multiplier_range = spike_multiplier_range
         self.spike_duration_range = spike_duration_range
         self.simulation_hours = simulation_hours

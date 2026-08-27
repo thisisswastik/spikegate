@@ -98,16 +98,14 @@ class SpikeDetector:
             "learning_rate": 0.05,
             "subsample": 0.8,
             "colsample_bytree": 0.8,
-            "min_child_weight": 5,
-            "scale_pos_weight": 10,   # compensate class imbalance
+            "min_child_weight": 3,
             "eval_metric": "logloss",
-            "use_label_encoder": False,
             "random_state": random_state,
             "n_jobs": -1,
         }
         default_iso = {
             "n_estimators": 100,
-            "contamination": 0.05,
+            "contamination": 0.04,
             "random_state": random_state,
             "n_jobs": -1,
         }
@@ -141,8 +139,17 @@ class SpikeDetector:
         self.scaler = StandardScaler()
         X_scaled = self.scaler.fit_transform(X)
 
+        # Dynamic scale_pos_weight to handle class imbalance
+        n_pos = int(np.sum(y))
+        n_neg = len(y) - n_pos
+        scale_pos = (n_neg / max(n_pos, 1)) if n_pos > 0 else 1.0
+
+        xgb_params = {**self.xgb_params, "scale_pos_weight": scale_pos}
+        if "use_label_encoder" in xgb_params:
+            del xgb_params["use_label_encoder"]
+
         # XGBoost
-        self.xgb_model = xgb.XGBClassifier(**self.xgb_params)
+        self.xgb_model = xgb.XGBClassifier(**xgb_params)
         self.xgb_model.fit(X, y)
 
         # IsolationForest (train only on normal samples for better anomaly detection)
@@ -190,7 +197,7 @@ class SpikeDetector:
         iso_proba = self._iso_score_to_proba(X_scaled)
         return self.XGB_WEIGHT * xgb_proba + self.ISO_WEIGHT * iso_proba
 
-    def predict_one(self, fv: FeatureVector) -> dict:
+    def predict_one(self, fv: FeatureVector, compute_explanation: bool = True) -> dict:
         """
         Score a single FeatureVector and return the full output contract.
 
@@ -204,31 +211,37 @@ class SpikeDetector:
         # Clip to valid range
         spike_score = float(np.clip(spike_score, 0.0, 1.0))
 
-        # SHAP values for explainability
-        shap_values = self.explainer.shap_values(X)
-        if isinstance(shap_values, list):
-            # Multi-output: take the positive class
-            shap_vals = shap_values[1][0]
-        else:
-            shap_vals = shap_values[0]
+        top_features = []
+        if compute_explanation:
+            # SHAP is computed when spike_score >= 0.10 (anomalous/spike)
+            if spike_score >= 0.10 and self.explainer is not None:
+                shap_values = self.explainer.shap_values(X)
+                if isinstance(shap_values, list):
+                    shap_vals = shap_values[1][0]
+                else:
+                    shap_vals = shap_values[0]
 
-        # Top 5 features by absolute SHAP contribution
-        feature_contributions = list(zip(self.feature_names, fv.values.tolist(), shap_vals.tolist()))
-        top_features = sorted(
-            feature_contributions,
-            key=lambda x: abs(x[2]),
-            reverse=True,
-        )[:5]
+                feature_contributions = list(zip(self.feature_names, fv.values.tolist(), shap_vals.tolist()))
+                top_features = [
+                    {"name": name, "value": float(val), "contribution": float(contrib)}
+                    for name, val, contrib in sorted(
+                        feature_contributions,
+                        key=lambda x: abs(x[2]),
+                        reverse=True,
+                    )[:5]
+                ]
+            else:
+                top_features = [
+                    {"name": self.feature_names[i], "value": float(fv.values[i]), "contribution": 0.0}
+                    for i in range(min(5, len(self.feature_names)))
+                ]
 
         return {
             "entity_type": fv.entity_type,
             "entity_id": fv.entity_id,
             "window_seconds": 300,   # primary window: 5-min
             "spike_score": spike_score,
-            "top_features": [
-                {"name": name, "value": float(val), "contribution": float(contrib)}
-                for name, val, contrib in top_features
-            ],
+            "top_features": top_features,
             "timestamp": fv.timestamp,
         }
 
