@@ -54,9 +54,9 @@ def explainer(state: AgentState) -> AgentState:
         name = feat["name"]
         value = feat["value"]
         contrib = feat["contribution"]
-        direction = "↑ spike signal" if contrib > 0 else "↓ anti-spike"
+        direction = "+ spike signal" if contrib > 0 else "- anti-spike"
         feature_lines.append(
-            f"    • {name} = {value:.4f}  [SHAP: {contrib:+.4f}, {direction}]"
+            f"    * {name} = {value:.4f}  [SHAP: {contrib:+.4f}, {direction}]"
         )
     features_text = "\n".join(feature_lines)
 
@@ -75,14 +75,14 @@ def explainer(state: AgentState) -> AgentState:
     tx_summary = ""
     if trigger:
         tx_summary = (
-            f"  Transaction: ₹{trigger.amount_inr:,.2f} via {trigger.payment_method} "
+            f"  Transaction: INR {trigger.amount_inr:,.2f} via {trigger.payment_method} "
             f"(status: {trigger.status})"
         )
 
     # Override notice
     override_text = ""
     if gate_override:
-        override_text = f"\n  ⚠️  DETERMINISTIC OVERRIDE: {gate_reason}"
+        override_text = f"\n  [DETERMINISTIC OVERRIDE]: {gate_reason}"
     elif llm_reasoning:
         override_text = f"\n  LLM reasoning: {llm_reasoning}"
 

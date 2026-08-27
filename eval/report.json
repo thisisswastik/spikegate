@@ -1,0 +1,53 @@
+{
+  "n_total": 100,
+  "n_spike": 97,
+  "n_normal": 3,
+  "spike_rate_pct": 97.0,
+  "action_counts": {
+    "auto_block": 0,
+    "soft_challenge": 71,
+    "flag_for_review": 29,
+    "allow": 0
+  },
+  "binary_metrics": {
+    "true_positives": 70,
+    "false_positives": 1,
+    "false_negatives": 27,
+    "true_negatives": 2,
+    "precision": 0.9859,
+    "recall": 0.7216,
+    "f1": 0.8333
+  },
+  "per_action_metrics": {
+    "auto_block": {
+      "count": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "soft_challenge": {
+      "count": 71,
+      "precision": 0.9859,
+      "recall": 0.7216,
+      "f1": 0.8333
+    },
+    "flag_for_review": {
+      "count": 29,
+      "precision": 0.069,
+      "recall": 0.6667,
+      "f1": 0.125
+    },
+    "allow": {
+      "count": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    }
+  },
+  "rupee_costs": {
+    "fp_cost_inr": 115.13,
+    "tp_value_inr": 746669.54,
+    "net_value_inr": 746554.41
+  },
+  "failure_cases_count": 0
+}

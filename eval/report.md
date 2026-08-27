@@ -1,44 +1,44 @@
 # SpikeGate Evaluation Report
-> Generated: 2026-08-27T12:19:45Z
+> Generated: 2026-08-27T14:33:38Z
 
 ## Dataset
 
 | Metric | Value |
 |--------|-------|
-| Total transactions | 12,636 |
-| Spike transactions | 9,114 (72.1%) |
-| Normal transactions | 3,522 |
+| Total transactions | 100 |
+| Spike transactions | 97 (97.0%) |
+| Normal transactions | 3 |
 
 ## Action Distribution
 
 | Action | Count | % of Total |
 |--------|-------|-----------|
 | auto_block | 0 | 0.0% |
-| soft_challenge | 11,271 | 89.2% |
-| flag_for_review | 1,342 | 10.6% |
-| allow | 23 | 0.2% |
+| soft_challenge | 71 | 71.0% |
+| flag_for_review | 29 | 29.0% |
+| allow | 0 | 0.0% |
 
 ## Binary Classification Metrics
 > (auto_block + soft_challenge = 'actioned' positive prediction)
 
 | Metric | Value |
 |--------|-------|
-| True Positives | 9,014 |
-| False Positives | 2,257 |
-| False Negatives | 100 |
-| True Negatives | 1,265 |
-| **Precision** | **0.7998** |
-| **Recall** | **0.9890** |
-| **F1 Score** | **0.8844** |
+| True Positives | 70 |
+| False Positives | 1 |
+| False Negatives | 27 |
+| True Negatives | 2 |
+| **Precision** | **0.9859** |
+| **Recall** | **0.7216** |
+| **F1 Score** | **0.8333** |
 
 ## Per-Action Metrics
 
 | Action | Count | Precision | Recall | F1 |
 |--------|-------|-----------|--------|-----|
 | auto_block | 0 | 0.0000 | 0.0000 | 0.0000 |
-| soft_challenge | 11,271 | 0.7998 | 0.9890 | 0.8844 |
-| flag_for_review | 1,342 | 0.9255 | 0.3526 | 0.5107 |
-| allow | 23 | 1.0000 | 0.0065 | 0.0130 |
+| soft_challenge | 71 | 0.9859 | 0.7216 | 0.8333 |
+| flag_for_review | 29 | 0.0690 | 0.6667 | 0.1250 |
+| allow | 0 | 0.0000 | 0.0000 | 0.0000 |
 
 ## False-Positive Cost Analysis (INR)
 
@@ -47,9 +47,9 @@
 
 | Metric | Amount (₹) |
 |--------|-----------|
-| False-positive cost (wrongly blocked/challenged) | ₹  947,025.35 |
-| True-positive value (fraud correctly caught) | ₹30,994,706.38 |
-| **Net value (TP value − FP cost)** | **₹30,047,681.03** |
+| False-positive cost (wrongly blocked/challenged) | ₹      115.13 |
+| True-positive value (fraud correctly caught) | ₹  746,669.54 |
+| **Net value (TP value − FP cost)** | **₹  746,554.41** |
 
 ## Defense-Only Statement
 

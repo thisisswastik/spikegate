@@ -94,16 +94,26 @@ Return ONLY valid JSON: {{"action": "...", "confidence": 0.0-1.0, "reasoning": "
 """
 
 
+_SESSION = None
+
+
+def _get_session():
+    global _SESSION
+    if _SESSION is None:
+        import requests
+        _SESSION = requests.Session()
+    return _SESSION
+
+
 def _call_gemini(prompt: str) -> dict[str, Any]:
     """Call Gemini REST API and return parsed JSON response."""
-    import requests
+    session = _get_session()
 
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key or api_key == "your_gemini_api_key_here":
         raise ValueError("GEMINI_API_KEY is not set. Please set it in .env")
 
     model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-    # Clean model name if user provided prefix
     if model_name.startswith("models/"):
         model_name = model_name[len("models/"):]
 
@@ -116,11 +126,11 @@ def _call_gemini(prompt: str) -> dict[str, Any]:
         "generationConfig": {
             "response_mime_type": "application/json",
             "temperature": 0.1,
-            "maxOutputTokens": 512,
+            "maxOutputTokens": 256,
         },
     }
 
-    response = requests.post(url, json=payload, timeout=5.0)
+    response = session.post(url, json=payload, timeout=10.0)
     if response.status_code != 200:
         raise RuntimeError(f"Gemini API error (HTTP {response.status_code}): {response.text}")
 
@@ -136,7 +146,7 @@ def policy_reasoner(state: AgentState) -> AgentState:
     """
     LangGraph node: call the LLM to decide a bounded action.
 
-    If context is unavailable OR the LLM call fails → default to flag_for_review.
+    If context is unavailable OR the LLM call fails → default to flag_for_review or soft_challenge.
     Action is validated against the VALID_ACTIONS enum before being accepted.
     """
     det = state["detector_output"]
@@ -195,12 +205,13 @@ def policy_reasoner(state: AgentState) -> AgentState:
         }
 
     except Exception as e:
-        # Any LLM failure → safe default
+        # Intelligent fallback: step-up auth if score is elevated, else flag for review
+        fallback_action = "soft_challenge" if score >= 0.50 else SAFE_DEFAULT_ACTION
         error_msg = f"policy_reasoner failed: {type(e).__name__}: {e}"
         return {
             **state,
-            "llm_action": SAFE_DEFAULT_ACTION,
+            "llm_action": fallback_action,
             "llm_confidence": 0.5,
-            "llm_reasoning": f"LLM call failed; defaulting to {SAFE_DEFAULT_ACTION}. Error: {e}",
+            "llm_reasoning": f"LLM call fallback ({fallback_action}) on error: {e}",
             "errors": state.get("errors", []) + [error_msg],
         }

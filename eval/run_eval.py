@@ -34,6 +34,14 @@ from unittest.mock import patch
 from dotenv import load_dotenv
 load_dotenv()
 
+# Configure stdout for UTF-8 on Windows terminal
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from data_gen.generator import TransactionGenerator
 from data_gen.stream import split_train_test, batch_to_jsonl
 from detector.pipeline import DetectorPipeline
@@ -59,6 +67,7 @@ def run_eval(
     context_db_path: str = "data/merchant_context.db",
     audit_db_path: str = "audit_log.db",
     use_agent: bool = True,
+    max_test_txns: int | None = None,
     verbose: bool = True,
 ) -> EvalResult:
     """
@@ -69,6 +78,8 @@ def run_eval(
     use_agent : bool
         If True, run detector + full LangGraph agent for each test transaction.
         If False, run detector only (useful when no LLM key is available).
+    max_test_txns : int | None
+        If provided, evaluate on at most this many test transactions (fast runs).
     """
 
     if verbose:
@@ -76,7 +87,7 @@ def run_eval(
         print("SpikeGate Evaluation Harness")
         print(f"{'='*60}")
         print(f"Simulation: {simulation_hours}h, {n_merchants} merchants, seed={seed}")
-        print(f"Test split: {test_fraction:.0%} held-out")
+        print(f"Test split: {test_fraction:.0%} held-out" + (f" (capped at {max_test_txns} txns)" if max_test_txns else ""))
 
     # ------------------------------------------------------------------
     # 1. Generate data
@@ -93,6 +104,9 @@ def run_eval(
     )
     all_transactions, spike_bursts = gen.generate_batch()
     train, test = split_train_test(all_transactions, test_fraction=test_fraction)
+
+    if max_test_txns is not None and max_test_txns > 0:
+        test = test[:max_test_txns]
 
     n_spike_test = sum(1 for t in test if t.is_spike)
     n_normal_test = len(test) - n_spike_test
@@ -150,9 +164,6 @@ def run_eval(
         "SPIKE_ALLOW_THRESHOLD": os.environ.get("SPIKE_ALLOW_THRESHOLD", "0.15"),
     }):
         for i, tx in enumerate(test):
-            if verbose and i % 100 == 0:
-                print(f"  Processing {i:,}/{len(test):,} test transactions...", end="\r", flush=True)
-
             # Detector step
             det_output = pipeline.process_one(tx)
 
@@ -221,6 +232,11 @@ def run_eval(
                     action = "allow"
                 spike_score = score
 
+            if verbose and len(test) <= 100:
+                print(f"  [{i+1:>3}/{len(test)}] {tx.merchant_id:<12} | INR {tx.amount_inr:>8,.0f} | score={spike_score:.3f} | {action:<15} | is_spike={tx.is_spike}")
+            elif verbose and i % 100 == 0:
+                print(f"  Processing {i:,}/{len(test):,} test transactions...", end="\r", flush=True)
+
             predictions.append({
                 "payment_id": tx.payment_id,
                 "merchant_id": tx.merchant_id,
@@ -261,9 +277,9 @@ def run_eval(
         print(f"  Precision : {metrics.precision:.4f}")
         print(f"  Recall    : {metrics.recall:.4f}")
         print(f"  F1 Score  : {metrics.f1:.4f}")
-        print(f"  FP Cost   : ₹{metrics.fp_cost_inr:,.2f}")
-        print(f"  TP Value  : ₹{metrics.tp_value_inr:,.2f}")
-        print(f"  Net Value : ₹{metrics.net_value_inr:,.2f}")
+        print(f"  FP Cost   : INR {metrics.fp_cost_inr:,.2f}")
+        print(f"  TP Value  : INR {metrics.tp_value_inr:,.2f}")
+        print(f"  Net Value : INR {metrics.net_value_inr:,.2f}")
         print(f"\n  Report written to: {report_path}")
         print(f"  Metrics JSON: {metrics_json_path}")
         print(f"{'='*60}")
@@ -277,6 +293,8 @@ def main():
     parser.add_argument("--merchants", type=int, default=50)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--test-split", type=float, default=0.20)
+    parser.add_argument("--max-txns", "--max-test-txns", dest="max_test_txns", type=int, default=None,
+                        help="Cap test set to at most this many transactions for fast eval")
     parser.add_argument("--report-path", default="eval/report.md")
     parser.add_argument("--no-agent", action="store_true",
                         help="Run detector-only (no LLM calls)")
@@ -287,6 +305,7 @@ def main():
         n_merchants=args.merchants,
         seed=args.seed,
         test_fraction=args.test_split,
+        max_test_txns=args.max_test_txns,
         report_path=args.report_path,
         use_agent=not args.no_agent,
     )
