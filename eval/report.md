@@ -1,5 +1,5 @@
 # SpikeGate Evaluation Report
-> Generated: 2026-08-27T15:51:30Z
+> Generated: 2026-08-27T16:57:17Z
 
 ## Dataset
 
@@ -14,31 +14,31 @@
 | Action | Count | % of Total |
 |--------|-------|-----------|
 | auto_block | 0 | 0.0% |
-| soft_challenge | 996 | 5.5% |
-| flag_for_review | 8,771 | 48.4% |
-| allow | 8,340 | 46.1% |
+| soft_challenge | 1,573 | 8.7% |
+| flag_for_review | 10,487 | 57.9% |
+| allow | 6,047 | 33.4% |
 
 ## Binary Classification Metrics
 > (auto_block + soft_challenge = 'actioned' positive prediction)
 
 | Metric | Value |
 |--------|-------|
-| True Positives | 703 |
-| False Positives | 293 |
-| False Negatives | 157 |
-| True Negatives | 16,954 |
-| **Precision** | **0.7058** |
-| **Recall** | **0.8174** |
-| **F1 Score** | **0.7575** |
+| True Positives | 698 |
+| False Positives | 875 |
+| False Negatives | 162 |
+| True Negatives | 16,372 |
+| **Precision** | **0.4437** |
+| **Recall** | **0.8116** |
+| **F1 Score** | **0.5738** |
 
 ## Per-Action Metrics
 
 | Action | Count | Precision | Recall | F1 |
 |--------|-------|-----------|--------|-----|
 | auto_block | 0 | 0.0000 | 0.0000 | 0.0000 |
-| soft_challenge | 996 | 0.7058 | 0.8174 | 0.7575 |
-| flag_for_review | 8,771 | 0.9847 | 0.5008 | 0.6639 |
-| allow | 8,340 | 0.9972 | 0.4822 | 0.6501 |
+| soft_challenge | 1,573 | 0.4437 | 0.8116 | 0.5738 |
+| flag_for_review | 10,487 | 0.9858 | 0.5994 | 0.7455 |
+| allow | 6,047 | 0.9979 | 0.3499 | 0.5181 |
 
 ## False-Positive Cost Analysis (INR)
 
@@ -47,9 +47,9 @@
 
 | Metric | Amount (₹) |
 |--------|-----------|
-| False-positive cost (wrongly blocked/challenged) | ₹  137,876.28 |
-| True-positive value (fraud correctly caught) | ₹3,603,136.98 |
-| **Net value (TP value − FP cost)** | **₹3,465,260.70** |
+| False-positive cost (wrongly blocked/challenged) | ₹  241,492.28 |
+| True-positive value (fraud correctly caught) | ₹3,530,294.94 |
+| **Net value (TP value − FP cost)** | **₹3,288,802.66** |
 
 ## Defense-Only Statement
 

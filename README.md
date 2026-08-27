@@ -203,10 +203,10 @@ streamlit run dashboard/app.py --server.port 8501
 | **Spike Transactions** | **860 (4.75%)** | Ground-truth spike bursts (realistic fraud prevalence) |
 | **Normal Transactions** | **17,247 (95.25%)** | Poisson baseline traffic |
 | **Decision Threshold** | **0.50** | Action boundary threshold |
-| **Precision** | **70.58% (0.7058)** | Fraction of predicted spikes that were real |
-| **Recall** | **81.74% (0.8174)** | Fraction of actual spikes caught |
-| **F1 Score** | **75.75% (0.7575)** | Harmonic mean of precision & recall |
-| **Overall Accuracy** | **97.51%** | True Positives (703) + True Negatives (16,954) |
+| **Precision** | **44.37% (0.4437)** | Fraction of actioned transactions that were real fraud |
+| **Recall** | **81.16% (0.8116)** | Fraction of actual spikes caught (698 / 860) |
+| **F1 Score** | **57.38% (0.5738)** | Harmonic mean under 20:1 real-world class imbalance |
+| **Overall Accuracy** | **94.27%** | True Positives (698) + True Negatives (16,372) |
 
 ### False-Positive Cost Analysis (INR)
 
@@ -214,9 +214,9 @@ streamlit run dashboard/app.py --server.port 8501
 
 | Metric | Amount (₹) | Details |
 |---|---|---|
-| **False-Positive Cost** | **₹137,876.28** | Friction on 293 legitimate transactions challenged |
-| **True-Positive Value** | **₹3,603,136.98** | Fraud prevented on 703 real spike attacks caught |
-| **Net Platform Value** | **₹3,465,260.70** | **TP Value − FP Cost (25.1× ROI)** |
+| **False-Positive Cost** | **₹241,492.28** | Friction on 875 legitimate transactions challenged |
+| **True-Positive Value** | **₹3,530,294.94** | Fraud prevented on 698 real spike attacks caught |
+| **Net Platform Value** | **₹3,288,802.66** | **TP Value − FP Cost (14.6× ROI)** |
 
 *See [`eval/report.md`](eval/report.md) for full per-action breakdown.*
 
