@@ -166,13 +166,25 @@ def get_pipeline_and_adapter():
 
 
 # ─────────────────────────────────────────────────────────────
-# Session State Initialization
+# Session State Initialization & Schema Migration
 # ─────────────────────────────────────────────────────────────
 
-if "tx_log" not in st.session_state:
+SCHEMA_VERSION = 2
+if "schema_version" not in st.session_state or st.session_state.schema_version != SCHEMA_VERSION:
     st.session_state.tx_log = []          # List of processed transactions
-if "alert_log" not in st.session_state:
     st.session_state.alert_log = []       # Filtered spike alerts (score >= 0.35)
+    st.session_state.total_processed = 0
+    st.session_state.total_alerts = 0
+    st.session_state.action_counts = {"auto_block": 0, "soft_challenge": 0, "flag_for_review": 0, "allow": 0}
+    st.session_state.fraud_prevented_inr = 0.0
+    st.session_state.fp_friction_inr = 0.0
+    st.session_state.is_streaming = True
+    st.session_state.schema_version = SCHEMA_VERSION
+
+if "tx_log" not in st.session_state:
+    st.session_state.tx_log = []
+if "alert_log" not in st.session_state:
+    st.session_state.alert_log = []
 if "total_processed" not in st.session_state:
     st.session_state.total_processed = 0
 if "total_alerts" not in st.session_state:
@@ -396,9 +408,9 @@ with tab_live:
         # Filter transactions
         filtered_txs = st.session_state.tx_log
         if action_filter != "All Actions":
-            filtered_txs = [t for t in filtered_txs if t["action"] == action_filter]
+            filtered_txs = [t for t in filtered_txs if t.get("action") == action_filter]
         if min_score_filter > 0.0:
-            filtered_txs = [t for t in filtered_txs if t["spike_score"] >= min_score_filter]
+            filtered_txs = [t for t in filtered_txs if t.get("spike_score", 0.0) >= min_score_filter]
 
         # ── Column 1: Live Ticker ──
         with col_stream:
@@ -407,19 +419,25 @@ with tab_live:
                 st.info("Waiting for incoming transactions matching filters...")
             else:
                 for entry in filtered_txs[:12]:
-                    is_spike = entry["is_spike"]
-                    score = entry["spike_score"]
+                    is_spike = entry.get("is_spike", False)
+                    score = entry.get("spike_score", 0.0)
                     score_class = "score-high" if score >= 0.70 else ("score-medium" if score >= 0.40 else "score-low")
 
                     dot = "🔴" if is_spike else "🟢"
+                    merchant_str = str(entry.get("merchant", "unknown"))[:12]
+                    ts_str = str(entry.get("ts", "--:--:--"))
+                    amount_val = entry.get("amount", 0.0)
+                    method_str = str(entry.get("method", "UPI"))
+                    action_str = str(entry.get("action", "allow"))
+
                     st.markdown(
                         f'<div class="{"glass-card-alert" if score >= 0.50 else "glass-card"}" style="padding:10px 14px; margin-bottom:8px;">'
                         f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                        f'<span>{dot} <b>{entry["merchant"][:12]}</b> <span style="color:#888; font-size:0.85em;">{entry["ts"]}</span></span>'
+                        f'<span>{dot} <b>{merchant_str}</b> <span style="color:#888; font-size:0.85em;">{ts_str}</span></span>'
                         f'<span class="score-badge {score_class}">{score:.2f}</span>'
                         f'</div>'
                         f'<div style="color:#bbb; font-size:0.85em; margin-top:4px;">'
-                        f'₹{entry["amount"]:,.0f} · {entry["method"]} · <span class="action-badge action-{entry["action"]}">{entry["action"]}</span>'
+                        f'₹{amount_val:,.0f} · {method_str} · <span class="action-badge action-{action_str}">{action_str}</span>'
                         f'</div>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -428,20 +446,24 @@ with tab_live:
         # ── Column 2: Spike Gauges ──
         with col_gauge:
             st.markdown("#### 🎯 Velocity Spike Gauges")
-            recent_alerts = [t for t in st.session_state.alert_log if t["spike_score"] >= 0.35][:6]
+            recent_alerts = [t for t in st.session_state.alert_log if t.get("spike_score", 0.0) >= 0.35][:6]
             if not recent_alerts:
                 st.info("No significant velocity spikes in current window.")
             else:
                 for alert in recent_alerts:
-                    score = alert["spike_score"]
+                    score = alert.get("spike_score", 0.0)
                     bar_color = "#ff4e4e" if score >= 0.75 else ("#ffa64d" if score >= 0.50 else "#4dff91")
+                    merchant_str = str(alert.get("merchant", "unknown"))
+                    amount_val = alert.get("amount", 0.0)
+                    ts_str = str(alert.get("ts", "--:--:--"))
+
                     st.markdown(
                         f'<div class="glass-card" style="padding:12px 16px; margin-bottom:8px;">'
                         f'<div style="display:flex; justify-content:space-between;">'
-                        f'<b>{alert["merchant"]}</b>'
+                        f'<b>{merchant_str}</b>'
                         f'<span style="font-weight:700; color:{bar_color};">{score:.3f}</span>'
                         f'</div>'
-                        f'<div style="font-size:0.8em; color:#aaa; margin-bottom:4px;">₹{alert["amount"]:,.0f} · {alert["ts"]}</div>'
+                        f'<div style="font-size:0.8em; color:#aaa; margin-bottom:4px;">₹{amount_val:,.0f} · {ts_str}</div>'
                         f'<progress value="{score}" max="1.0" style="width:100%; accent-color:{bar_color}; height:8px;"></progress>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -450,12 +472,12 @@ with tab_live:
         # ── Column 3: Agent Decisions & SHAP ──
         with col_decision:
             st.markdown("#### 🛡️ Bounded Agent Decisions")
-            recent_decisions = [t for t in st.session_state.tx_log if t["spike_score"] >= 0.35][:4]
+            recent_decisions = [t for t in st.session_state.tx_log if t.get("spike_score", 0.0) >= 0.35][:4]
             if not recent_decisions:
                 st.info("Awaiting alert triggers to display agent decisions...")
             else:
                 for dec in recent_decisions:
-                    action = dec["action"]
+                    action = dec.get("action", "allow")
                     action_colors = {
                         "auto_block": "#ff4e4e",
                         "soft_challenge": "#ffa64d",
@@ -466,17 +488,21 @@ with tab_live:
                     override_badge = '<span style="background:#e53e3e; color:white; font-size:0.7em; padding:2px 6px; border-radius:4px; margin-left:6px;">BOUNDS GATE OVERRIDE</span>' if dec.get("override") else ""
 
                     feat_items = "".join(
-                        f"<li><code>{f['name']}</code>: <b>{f['value']:.2f}</b> (SHAP: <span style='color:{'#ff6b6b' if f['contribution'] > 0 else '#4dff91'}'>{f['contribution']:+.2f}</span>)</li>"
-                        for f in dec["top_features"][:3]
+                        f"<li><code>{f.get('name', 'feature')}</code>: <b>{f.get('value', 0.0):.2f}</b> (SHAP: <span style='color:{'#ff6b6b' if f.get('contribution', 0.0) > 0 else '#4dff91'}'>{f.get('contribution', 0.0):+.2f}</span>)</li>"
+                        for f in dec.get("top_features", [])[:3]
                     )
+
+                    merchant_str = str(dec.get("merchant", "unknown"))[:12]
+                    ts_str = str(dec.get("ts", "--:--:--"))
+                    expl_str = str(dec.get("explanation", "Explainable decision logged."))
 
                     st.markdown(
                         f'<div class="glass-card" style="margin-bottom:10px;">'
                         f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                        f'<span><b>{dec["merchant"][:12]}</b> <span style="font-size:0.8em; color:#888;">{dec["ts"]}</span></span>'
+                        f'<span><b>{merchant_str}</b> <span style="font-size:0.8em; color:#888;">{ts_str}</span></span>'
                         f'<span><span class="action-badge action-{action}">{action.upper()}</span>{override_badge}</span>'
                         f'</div>'
-                        f'<div style="font-size:0.85em; color:#ddd; margin:8px 0;">{dec["explanation"]}</div>'
+                        f'<div style="font-size:0.85em; color:#ddd; margin:8px 0;">{expl_str}</div>'
                         f'<ul style="font-size:0.8em; color:#aaa; margin:0; padding-left:18px;">{feat_items}</ul>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -505,13 +531,14 @@ with tab_analytics:
 
         with c2:
             st.markdown("#### Spike Score Trajectory")
-            if "spike_score" in df_log.columns:
+            if "spike_score" in df_log.columns and "ts" in df_log.columns:
                 score_chart_df = df_log[["ts", "spike_score"]].iloc[::-1].reset_index(drop=True)
                 st.line_chart(score_chart_df.set_index("ts"), color="#ff4e4e")
 
-        st.markdown("#### Transaction Amounts vs Spike Anomaly Score")
-        scatter_df = df_log[["amount", "spike_score", "action"]]
-        st.scatter_chart(scatter_df, x="amount", y="spike_score", color="action")
+        if "amount" in df_log.columns and "spike_score" in df_log.columns:
+            st.markdown("#### Transaction Amounts vs Spike Anomaly Score")
+            scatter_df = df_log[["amount", "spike_score", "action"]]
+            st.scatter_chart(scatter_df, x="amount", y="spike_score", color="action")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -525,37 +552,42 @@ with tab_inspector:
     if not st.session_state.tx_log:
         st.info("Awaiting transactions to inspect.")
     else:
-        candidates = [f"{t['ts']} | {t['merchant']} | ₹{t['amount']:,.0f} | Score={t['spike_score']:.2f} ({t['action']})" for t in st.session_state.tx_log]
+        candidates = [
+            f"{t.get('ts', '--')} | {t.get('merchant', 'unknown')} | ₹{t.get('amount', 0):,.0f} | Score={t.get('spike_score', 0):.2f} ({t.get('action', 'allow')})"
+            for t in st.session_state.tx_log
+        ]
         selected_label = st.selectbox("Select Transaction to Inspect", candidates)
-        selected_idx = candidates.index(selected_label)
+        selected_idx = candidates.index(selected_label) if selected_label in candidates else 0
         selected_tx = st.session_state.tx_log[selected_idx]
 
         i_col1, i_col2 = st.columns([1, 1.5])
         with i_col1:
             st.markdown("#### Transaction Overview")
             st.json({
-                "Payment ID": selected_tx["payment_id"],
-                "Timestamp": selected_tx["ts"],
-                "Merchant": selected_tx["merchant"],
-                "Amount (INR)": f"₹{selected_tx['amount']:,.2f}",
-                "Payment Method": selected_tx["method"],
-                "Spike Score": selected_tx["spike_score"],
-                "Agent Action": selected_tx["action"],
-                "Is Ground Truth Spike": selected_tx["is_spike"],
+                "Payment ID": selected_tx.get("payment_id", f"pay_tx_{selected_idx}"),
+                "Timestamp": selected_tx.get("ts", "--:--:--"),
+                "Merchant": selected_tx.get("merchant", "unknown"),
+                "Amount (INR)": f"₹{selected_tx.get('amount', 0.0):,.2f}",
+                "Payment Method": selected_tx.get("method", "UPI"),
+                "Spike Score": selected_tx.get("spike_score", 0.0),
+                "Agent Action": selected_tx.get("action", "allow"),
+                "Is Ground Truth Spike": selected_tx.get("is_spike", False),
             })
 
         with i_col2:
             st.markdown("#### Top SHAP Feature Contributions")
-            if selected_tx["top_features"]:
-                shap_df = pd.DataFrame(selected_tx["top_features"])
+            top_feats = selected_tx.get("top_features", [])
+            if top_feats:
+                shap_df = pd.DataFrame(top_feats)
                 shap_df = shap_df.rename(columns={"name": "Feature Name", "value": "Extracted Value", "contribution": "SHAP Contribution"})
                 st.dataframe(shap_df, use_container_width=True)
-                st.bar_chart(shap_df.set_index("Feature Name")["SHAP Contribution"])
+                if "SHAP Contribution" in shap_df.columns and "Feature Name" in shap_df.columns:
+                    st.bar_chart(shap_df.set_index("Feature Name")["SHAP Contribution"])
             else:
                 st.info("Normal baseline transaction — below SHAP threshold.")
 
         st.markdown("#### 📝 Generated Explainability Text")
-        st.success(selected_tx["explanation"])
+        st.success(selected_tx.get("explanation", "Explainable decision logged."))
 
 
 # ─────────────────────────────────────────────────────────────
