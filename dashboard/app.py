@@ -9,18 +9,31 @@ Layout:
 Run with:
   streamlit run dashboard/app.py --server.port 8501
 """
-from __future__ import annotations
-
 import os
+import sys
+from pathlib import Path
 import sqlite3
 import time
 from datetime import datetime, timezone
-from pathlib import Path
+
+# Ensure project root is on sys.path for Streamlit Cloud and subfolder execution
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import streamlit as st
-
 from dotenv import load_dotenv
+
 load_dotenv()
+
+# Sync Streamlit Cloud secrets to os.environ if present
+try:
+    if hasattr(st, "secrets"):
+        for key, value in st.secrets.items():
+            if isinstance(value, str) and key not in os.environ:
+                os.environ[key] = value
+except Exception:
+    pass
 
 # ─────────────────────────────────────────────────────────────
 # Page config (must be first Streamlit call)
